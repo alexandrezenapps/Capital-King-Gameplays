@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user data for game state",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "coins": { "type": "number" },
+        "gems": { "type": "number" },
+        "energy": { "type": "number" },
+        "maxEnergy": { "type": "number" },
+        "lastEnergyRefill": { "type": "number" },
+        "currentLocation": { "type": "number" },
+        "shields": { "type": "number" },
+        "selectedSkin": { "type": "string" }
+      },
+      "required": ["uid", "coins", "gems", "energy", "maxEnergy", "lastEnergyRefill", "currentLocation", "shields", "selectedSkin"]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Publicly visible user data for leaderboard and social",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "level": { "type": "number" },
+        "netWorth": { "type": "number" }
+      },
+      "required": ["uid", "displayName", "photoURL", "level", "netWorth"]
+    },
+    "Building": {
+      "title": "Building",
+      "description": "A building owned by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["bank", "hotel", "shop", "penthouse", "casino"] },
+        "level": { "type": "number" },
+        "basePrice": { "type": "number" },
+        "baseIncome": { "type": "number" },
+        "position": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "level", "basePrice", "baseIncome", "position"]
+    }
+  },
+  "firestore": {
+    "users/{uid}": {
+      "schema": "UserProfile",
+      "description": "Private user game state"
+    },
+    "profiles/{uid}": {
+      "schema": "PublicProfile",
+      "description": "Public user profile for social features"
+    },
+    "users/{uid}/buildings/{buildingId}": {
+      "schema": "Building",
+      "description": "Buildings owned by the user"
+    }
+  }
+}

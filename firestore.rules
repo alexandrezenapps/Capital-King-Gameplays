@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - coins: number (required)
+    //   - gems: number (required)
+    //   - energy: number (required)
+    //   - maxEnergy: number (required)
+    //   - lastEnergyRefill: number (required)
+    //
+    // Collection: profiles/{uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (required)
+    //   - photoURL: string (required)
+    //   - level: number (required)
+    //   - netWorth: number (required)
+    //
+    // Collection: users/{uid}/buildings/{buildingId}
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - type: string (required, enum: bank, hotel, shop, penthouse, casino)
+    //   - level: number (required)
+    //   - basePrice: number (required)
+    //   - baseIncome: number (required)
+    //   - position: number (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "alexandrezenapps@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'coins', 'gems', 'energy', 'maxEnergy', 'lastEnergyRefill']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.coins is number && data.coins >= 0 &&
+             data.gems is number && data.gems >= 0 &&
+             data.energy is number && data.energy >= 0 &&
+             data.maxEnergy is number && data.maxEnergy > 0 &&
+             data.lastEnergyRefill is number;
+    }
+
+    function isValidProfile(data) {
+      return hasRequiredFields(['uid', 'displayName', 'photoURL', 'level', 'netWorth']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 50 &&
+             isValidUrl(data.photoURL) &&
+             data.level is number && data.level > 0 &&
+             data.netWorth is number && data.netWorth >= 0;
+    }
+
+    function isValidBuilding(data) {
+      return hasRequiredFields(['id', 'name', 'type', 'level', 'basePrice', 'baseIncome', 'position']) &&
+             data.id is string &&
+             data.name is string && data.name.size() > 0 &&
+             data.type in ['bank', 'hotel', 'shop', 'penthouse', 'casino'] &&
+             data.level is number && data.level > 0 &&
+             data.basePrice is number && data.basePrice > 0 &&
+             data.baseIncome is number && data.baseIncome >= 0 &&
+             data.position is number && data.position >= 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /buildings/{buildingId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidBuilding(request.resource.data);
+        allow update: if isOwner(userId) && isValidBuilding(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidProfile(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
